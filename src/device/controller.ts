@@ -110,7 +110,7 @@ import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
 import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
-import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
+import { SUPPORTED_HID_FILTERS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
@@ -1536,10 +1536,24 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
       + "Synapse app, so this mouse needs a native client.",
     );
   }
+  // The 0x1d57 Attack Shark family declares its control channel on usage pages
+  // 0x0a and 0x0b, and the browser never hands those collections to the page:
+  // the only interface it offers is a media-key collection with no feature
+  // reports. Requesting those usage pages by filter returns that same handle,
+  // so re-picking cannot help and neither can a narrower filter. Say that,
+  // rather than sending the user back to a prompt that has one row.
+  if (devices.some((device) => device.vendorId === VENDOR_ID.attackSharkX)) {
+    throw new Error(
+      "This Attack Shark cannot be configured in the browser: the only interface it exposes "
+      + "here is a media-key collection with no feature reports, and its control channel sits "
+      + "on collections the browser will not hand to a web page. This mouse needs a native "
+      + "driver. Checked over both the cable and the 2.4 GHz receiver.",
+    );
+  }
   throw new Error(
     `Selected device is not a supported control interface (${details}). `
-    + "Pick a vendor control interface (not a plain boot mouse). "
-    + "If this keeps failing, note the VID/PID from this message.",
+    + "Pick a vendor control interface (not a plain boot mouse). If this keeps failing, run the "
+    + "Mouse Check page at /check.html and share its report along with the VID/PID above.",
   );
 }
 

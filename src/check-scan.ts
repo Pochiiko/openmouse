@@ -22,6 +22,14 @@ export const BRANDS: Record<number, string> = {
   0x3367: "Endgame Gear",
   0x36A7: "WLMouse",
   0x373E: "Lamzu / CRDRAKO / Attack Shark",
+  // Attack Shark ships from several OEMs. 0x1D57 (Xenta) covers the R1 and X11
+  // families, 0x25A7 the X3, X6, and direct-connect X11. Without them here an
+  // Attack Shark on either vendor id is missing from SCAN_FILTERS, so the
+  // prompt never offers it and the page cannot report what its interfaces look
+  // like — which is exactly what a "not a supported control interface" report
+  // needs to be diagnosed.
+  0x1D57: "Xenta / Attack Shark",
+  0x25A7: "Attack Shark",
   0x3554: "Teevolution / VGN",
   0x373B: "ATK",
   0x361D: "Finalmouse",
@@ -35,7 +43,7 @@ export const BRANDS: Record<number, string> = {
 
 const OPENMOUSE_SUPPORTED = new Set([
   0x1532, 0x046D, 0x3710, 0x3367, 0x36A7, 0x373E, 0x3554, 0x373B, 0x361D, 0x3434, 0x2FE3, 0x1915,
-  0x3151,
+  0x3151, 0x1D57, 0x25A7,
 ]);
 
 /**
@@ -234,10 +242,16 @@ export function buildDiscordSummary(results: DeviceResult[]): string {
   for (const r of results) {
     const name = r.device.productName || `${r.brand} Mouse`;
     const verdict = VERDICT_LABEL[r.verdict];
-    lines.push(`**${name}** — \`${r.brand}\` | \`VID_${hex(r.vendorId)}\` | **${verdict}**`);
+    lines.push(
+      `**${name}** — \`${r.brand}\` | \`VID_${hex(r.vendorId)}\` | \`PID_${hex(r.productId)}\` | **${verdict}**`,
+    );
     lines.push(`> ${r.verdictNote}`);
+    // Usage alone does not say whether an interface can carry a control
+    // channel; the report counts do. A mouse that shows several identically
+    // named entries in the browser prompt is triaged by which collection owns
+    // the feature reports, so the shared summary has to carry them.
     const collections = r.device.collections
-      .map((c) => `\`${usagePageLabel(c.usagePage)}\``)
+      .map((c) => `\`${usagePageLabel(c.usagePage)} usage 0x${hex(c.usage, 2)} — ${reportSummary(c)}\``)
       .join(", ");
     if (collections) lines.push(`> Interfaces: ${collections}`);
     if (r.txResults.length > 0) {
